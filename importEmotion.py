@@ -13,14 +13,15 @@ import matplotlib.pyplot as plt
 np.random.seed(1337)  # for reproducibility
 
 from keras.datasets import mnist
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.utils import np_utils
 from keras import backend as K
+import os
 
 # Importation des donnees
-df = pandas.read_csv('/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013/fer2013.csv', 
+df = pandas.read_csv(os.path.join(os.environ['EMOTION_PROJECT'],'fer2013.csv'), 
                      sep=",")
 df.head()
 data_emotion = df['emotion']
@@ -28,8 +29,9 @@ data_pixels = df['pixels']
 data_usage = df['Usage']
 
 # on exporte et on reimporte les donnees pixels pour les mettre dans un data frame
-#data_pixels.to_csv("/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013/pixels.csv",sep="\t",encoding="utf-8", index=False)
-data_image = pandas.read_csv("/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013/pixels.csv", 
+#data_pixels.to_csv(os.path.join(os.environ['EMOTION_PROJECT'],'pixels.csv'),
+#                   sep="\t",encoding="utf-8", index=False)
+data_image = pandas.read_csv(os.path.join(os.environ['EMOTION_PROJECT'],'pixels.csv'), 
                              sep=" ", header=None)
 
 # creation de numpy arrays
@@ -43,16 +45,21 @@ Ycv = data_emotion[data_usage=='PublicTest']
 Xtest = data_image[data_usage=='PrivateTest', :]
 Ytest = data_emotion[data_usage=='PrivateTest']
 
+# dico emotion
+dico_emotion = {0:'Angry',1:'Disgust', 2:'Fear',
+                3:'Happy', 4:'Sad', 5:'Surprise', 6:'Neutral'}
 # Visualize the data
-pixels = data_image[0,:]
-pixels = pixels.reshape((48, 48))
-plt.imshow(pixels, cmap='gray')
-plt.show()
 
+def view_emotion(exemple):
+    fig = plt.figure(str(exemple))
+    ax = fig.add_subplot(111)
+    pixels = data_image[exemple,:]
+    pixels = pixels.reshape((48, 48))
+    ax.imshow(pixels, cmap='gray')
+    ax.set_title(dico_emotion[data_emotion[exemple]])
+# test 
+view_emotion(7)
 # creation train set, cross validation set et test set
-
-
-
 # on reshape les donnees
 Xtrain = Xtrain.reshape((Xtrain.shape[0],48,48))
 Xcv = Xcv.reshape((Xcv.shape[0],48,48))
@@ -127,7 +134,7 @@ model.add(Activation('softmax'))
 
 model.compile(loss='categorical_crossentropy',
               optimizer='adadelta',
-metrics=['accuracy'])
+              metrics=['accuracy'])
 
 # Model fitting
 model.fit(Xtrain, YtrainBin, batch_size=batch_size, nb_epoch=nb_epoch,
@@ -142,7 +149,32 @@ scoreTest = model.evaluate(Xtest, YtestBin, verbose=0)
 print('Test score:', scoreTest[0])
 print('Test accuracy:', scoreTest[1])
 
+# save the model
 
+model.save(os.path.join(os.environ['EMOTION_PROJECT'],'model1'))
 
+model_loaded = load_model(os.path.join(os.environ['EMOTION_PROJECT'],'model1'))
 
+model_loaded.summary()
 
+# see an example and its prediction
+exemple = 1
+input_image = data_image.reshape((data_image.shape[0],48,48))[exemple]
+input_image = input_image.astype('float32')/255
+input_image = Xtrain[1:2,:]
+if K.image_dim_ordering() == 'th':
+    input_image = input_image.reshape(1, 1, img_rows, img_cols)
+else:
+    input_image = input_image.reshape(1, img_rows, img_cols, 1)
+
+pred = model_loaded.predict(input_image)
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+rects = ax.bar(np.arange(7), pred.T, 0.35,
+                 color='b',
+                 label='Men')
+ax.set_xticks(np.arange(7))
+ax.set_xticklabels(tuple(dico_emotion.values()))
+
+view_emotion(exemple)
