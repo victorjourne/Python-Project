@@ -21,7 +21,11 @@ from keras import backend as K
 import os
 
 # Importation des donnees
-df = pandas.read_csv(os.path.join(os.environ['EMOTION_PROJECT'],'fer2013.csv'), 
+DATA_PATH = os.environ['EMOTION_PROJECT']
+DATA_PATH = "mypath"
+GIT_PATH = "C:\Users\KD5299\Python-Project"
+
+df = pandas.read_csv(os.path.join(DATA_PATH,'fer2013.csv'), 
                      sep=",")
 df.head()
 data_emotion = df['emotion']
@@ -31,7 +35,7 @@ data_usage = df['Usage']
 # on exporte et on reimporte les donnees pixels pour les mettre dans un data frame
 #data_pixels.to_csv(os.path.join(os.environ['EMOTION_PROJECT'],'pixels.csv'),
 #                   sep="\t",encoding="utf-8", index=False)
-data_image = pandas.read_csv(os.path.join(os.environ['EMOTION_PROJECT'],'pixels.csv'), 
+data_image = pandas.read_csv(os.path.join(DATA_PATH,'pixels.csv'), 
                              sep=" ", header=None)
 
 # creation de numpy arrays
@@ -141,7 +145,7 @@ model.fit(Xtrain, YtrainBin, batch_size=batch_size, nb_epoch=nb_epoch,
           verbose=1, validation_data=(Xcv, YcvBin))
 # Model evaluation
 # Cross validation score
-scoreCV = model.evaluate(Xcv, YcvBin, verbose=0)
+scoreCV = model.evaluate(Xcv, YcvBin,verbose=0)
 print('CV score:', scoreCV[0])
 print('CV accuracy:', scoreCV[1])
 # Test score
@@ -149,16 +153,33 @@ scoreTest = model.evaluate(Xtest, YtestBin, verbose=0)
 print('Test score:', scoreTest[0])
 print('Test accuracy:', scoreTest[1])
 
+
+predictCV = model.predict(Xcv, verbose=0)
+np.sum((predictCV.argmax(axis=1)-YcvBin.argmax(axis=1))==0)/float(YcvBin.shape[0])
+predictCV[0]
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+j=0
+for clas in range(7):
+    j=j+0.1
+    predClas = predictCV[YcvBin.argmax(axis=1)==clas].mean(axis=0)
+    print(predClas)   
+    rects = ax.bar(np.arange(7)+j, predClas.T, 0.1,
+                 label='Men')
+ax.set_xticks(np.arange(7)+0.5)
+ax.set_xticklabels(tuple(dico_emotion.values()))
+
 # save the model
 
-model.save(os.path.join(os.environ['EMOTION_PROJECT'],'model1'))
+model.save(os.path.join(GIT_PATH,'model1'))
 
-model_loaded = load_model(os.path.join(os.environ['EMOTION_PROJECT'],'model1'))
+model_loaded = load_model(os.path.join(GIT_PATH,'model1'))
 
 model_loaded.summary()
 
 # see an example and its prediction
-exemple = 1
+exemple = 28716
 input_image = data_image.reshape((data_image.shape[0],48,48))[exemple]
 input_image = input_image.astype('float32')/255
 input_image = Xtrain[1:2,:]
