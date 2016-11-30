@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 
 np.random.seed(1337)  # for reproducibility
 
-from keras.datasets import mnist
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
@@ -21,9 +20,10 @@ from keras import backend as K
 import os
 
 # Importation des donnees
-DATA_PATH = os.environ['EMOTION_PROJECT']
-DATA_PATH = "mypath"
-GIT_PATH = "C:\Users\KD5299\Python-Project"
+#DATA_PATH = os.environ['EMOTION_PROJECT']
+DATA_PATH = "/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013"
+#GIT_PATH = "C:\Users\KD5299\Python-Project"
+GIT_PATH = "/Users/ludoviclelievre/Documents/Python-Project"
 
 df = pandas.read_csv(os.path.join(DATA_PATH,'fer2013.csv'), 
                      sep=",")
@@ -97,12 +97,6 @@ else:
     Xcv = Xcv.reshape(Xcv.shape[0], img_rows, img_cols, 1)
     Xtest = Xtest.reshape(Xtest.shape[0], img_rows, img_cols, 1)
     input_shape = (img_rows, img_cols, 1)
-
-
-Xtrain = Xtrain.reshape(Xtrain.shape[0], img_rows, img_cols, 1)
-Xcv = Xcv.reshape(Xcv.shape[0], img_rows, img_cols, 1)
-Xtest = Xtest.reshape(Xtest.shape[0], img_rows, img_cols, 1)
-input_shape = (img_rows, img_cols, 1)
 
 Xtrain = Xtrain.astype('float32')
 Xcv = Xcv.astype('float32')
