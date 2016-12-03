@@ -43,23 +43,24 @@ class Data:
     def __init__(self,df):
         self.data_emotion = df['emotion'].as_matrix(columns=None)
         self.data_usage = df['Usage'].as_matrix(columns=None)
-        self.data_image = df[filter(lambda pxl: type(pxl)==long ,df.columns.tolist())].as_matrix(columns=None)
-
+        self.data_image = df[list(filter(lambda pxl: type(pxl)!=str ,df.columns.tolist()))].as_matrix(columns=None)
+   
+    @property
+    def nb_example(self):
+        return int(self.data_emotion.shape[0])
     @property
     def dim(self):
-        return int(np.sqrt(self.data_image[0].shape[0]))
-        
+        return int(np.sqrt(self.data_image[0].shape[0]))     
     @property
     def nb_classes(self):
         return int(np.unique(self.data_emotion).shape[0])
-        
     @property
     def input_shape(self):
         if K.image_dim_ordering() == 'th':
             return (1, self.dim, self.dim)
         else:
             return (self.dim, self.dim,1)
-            
+ 
     def zoom(self,z):
         data_image_zoom = np.ndarray((self.data_image.shape[0],
                                       self.data_image.shape[1]/z**2))
@@ -84,22 +85,24 @@ class Data:
 
         if K.image_dim_ordering() == 'th':
             X = X.reshape(X.shape[0], 1,self.dim, self.dim)
-            self.input_shape = (1, self.dim, self.dim)
-
         else:
             X = X.reshape(X.shape[0], self.dim, self.dim, 1)
-            self.input_shape = ( self.dim, self.dim,1)
         X = X.astype('float32')
         Y = np_utils.to_categorical(Y, self.nb_classes)
         return X,Y
 
     def ViewEmotion(self):
         fig = plt.figure()
-        ax= fig.add_subplot(311)
-        pixels = self.data_image.reshape(self.input_shape[0:2])
-        ax.imshow(pixels, cmap='gray')
-        ax.set_title(dico_emotion[self.data_emotion[0]])
-
+        i = 1
+        nrow = int(np.sqrt(self.nb_example+.25)-0.5)+1
+        for emotion,image in zip(self.data_emotion,self.data_image):
+            ax = fig.add_subplot(nrow,nrow+1,i)
+            pixels = image.reshape(self.input_shape[0:2])
+            ax.imshow(pixels, cmap='gray')
+            ax.set_title(dico_emotion[emotion])
+            plt.axis('off')
+            i = i+1
+        
 # test on the whole dataset  
 data= Data(df)
 data.data_image[1,:]
@@ -115,22 +118,27 @@ Xez.shape
 
 # test with one image
 one_image = Data(df.iloc[3:4])
-one_image.input_shape
-one_image.data_emotion
-one_image.ViewEmotion()
 one_image.zoom(2)
 one_image.ViewEmotion()
+one_image.EnhanceContrast()
+one_image.ViewEmotion()
+
 one_image = Data(df.iloc[3:4])
 one_image.EnhanceContrast()
 one_image.zoom(2)
 one_image.ViewEmotion()
 
+several_images = Data(df[df['emotion']==1].sample(20))
+several_images.nb_example
+several_images.ViewEmotion()
+several_images.zoom(2)
 
 #==============================================================================
 # CNN
 #==============================================================================
 data = Data(df)
 data.zoom(2)
+data.input_shape
 data.Normalize()
 # set inputs and outputs
 Xtrain, YtrainBin = data.CreateUsageSet('Training')
@@ -143,11 +151,11 @@ nb_epoch = 12
 # input image dimensions
 img_rows, img_cols = data.dim,data.dim
 # number of convolutional filters to use
-nb_filters = 32
+nb_filters = 16
 # size of pooling area for max pooling
-pool_size = (2, 2)
+pool_size = (3, 3)
 # convolution kernel size
-kernel_size = (3, 3)
+kernel_size = (5, 5)
 
 # CNN model
 model = Sequential()
@@ -199,6 +207,7 @@ for clas in range(7):
     print(predClas)   
     rects = ax.bar(np.arange(7)+j, predClas.T, 0.1,
                  label='Men')
+propCla  = YcvBin.mean(axis=0)
 ax.set_xticks(np.arange(7)+0.5)
 ax.set_xticklabels(tuple(dico_emotion.values()))
 
