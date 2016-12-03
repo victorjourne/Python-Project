@@ -17,9 +17,11 @@ from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.utils import np_utils
 from keras import backend as K
+from keras.regularizers import l2
 import os
 from skimage import exposure,transform
 import pandas as pd
+from sklearn import preprocessing
 #import getpass
 #getpass.getuser()
 # Importation des donnees
@@ -103,6 +105,20 @@ class Data:
             ax.set_title(dico_emotion[emotion])
             plt.axis('off')
             i = i+1
+    
+    # Substract the mean value of each image
+    def SubstractMean(self):
+        mean = self.data_image.mean(axis=1)
+        self.data_image = self.data_image - mean[:, np.newaxis]
+
+    # set the image norm to 100 and standardized each pixels accross the image    
+    def TangPreprocess(self):
+        # set the image norm to 100 
+        min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
+        self.data_image = min_max_scaler.fit_transform(self.data_image)
+        # standardized each pixels accross the image
+        scaler = preprocessing.StandardScaler().fit(self.data_image[self.data_usage=='Training'])
+        self.data_image = scaler.transform(self.data_image)
         
 # test on the whole dataset  
 data= Data(df)
@@ -129,15 +145,21 @@ one_image.EnhanceContrast()
 one_image.zoom(2)
 one_image.ViewEmotion()
 
-several_images = Data(df[df['emotion']==1].sample(20))
-several_images.nb_example
+several_images = Data(df.sample(20))
+several_images.data_image
 several_images.ViewEmotion()
-several_images.zoom(2)
+several_images.SubstractMean()
+several_images.EnhanceContrast()
+several_images.ViewEmotion()
+several_images.TangPreprocess()
 
 #==============================================================================
 # CNN
 #==============================================================================
 data = Data(df)
+data.SubstractMean()
+data.TangPreprocess()
+data.EnhanceContrast()
 data.zoom(2)
 data.input_shape
 data.Normalize()
@@ -154,9 +176,9 @@ img_rows, img_cols = data.dim,data.dim
 # number of convolutional filters to use
 nb_filters = 16
 # size of pooling area for max pooling
-pool_size = (3, 3)
+pool_size = (2, 2)
 # convolution kernel size
-kernel_size = (5, 5)
+kernel_size = (3, 3)
 
 # CNN model
 model = Sequential()
