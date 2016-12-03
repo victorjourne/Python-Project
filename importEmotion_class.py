@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 
 np.random.seed(1337)  # for reproducibility
 
-from keras.datasets import mnist
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
@@ -24,9 +23,11 @@ import pandas as pd
 #import getpass
 #getpass.getuser()
 # Importation des donnees
-DATA_PATH = os.environ['EMOTION_PROJECT']
+#DATA_PATH = os.environ['EMOTION_PROJECT']
+DATA_PATH = "/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013"
 #DATA_PATH = "mypath"
-GIT_PATH = "C:\Users\KD5299\Python-Project"
+#GIT_PATH = "C:\Users\KD5299\Python-Project"
+GIT_PATH = "/Users/ludoviclelievre/Documents/Python-Project"
 
 df0 = pandas.read_csv(os.path.join(DATA_PATH,'fer2013.csv'), 
                      sep=",")
@@ -77,7 +78,7 @@ class Data:
                                 exposure.equalize_hist,1,self.data_image)
         
     def Normalize(self):
-        self.data_image =self.data_image/256.
+        self.data_image =self.data_image/255.
 
     def CreateUsageSet(self,usage):
         X = self.data_image[self.data_usage==usage, :]
