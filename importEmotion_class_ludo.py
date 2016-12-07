@@ -25,11 +25,11 @@ from sklearn import preprocessing
 #import getpass
 #getpass.getuser()
 # Importation des donnees
-#DATA_PATH = os.environ['EMOTION_PROJECT']
-DATA_PATH = "/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013"
+DATA_PATH = os.environ['EMOTION_PROJECT']
+#DATA_PATH = "/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013"
 #DATA_PATH = "mypath"
-#GIT_PATH = "C:\Users\KD5299\Python-Project"
-GIT_PATH = "/Users/ludoviclelievre/Documents/Python-Project"
+GIT_PATH = "C:\Users\KD5299\Python-Project"
+#GIT_PATH = "/Users/ludoviclelievre/Documents/Python-Project"
 
 df0 = pandas.read_csv(os.path.join(DATA_PATH,'fer2013.csv'), 
                      sep=",")
@@ -63,7 +63,19 @@ class Data:
             return (1, self.dim, self.dim)
         else:
             return (self.dim, self.dim,1)
- 
+    
+    def CreateUsageSet(self,usage):
+        X = self.data_image[self.data_usage==usage, :]
+        Y = self.data_emotion[self.data_usage==usage]
+    
+        if K.image_dim_ordering() == 'th':
+            X = X.reshape(X.shape[0], 1,self.dim, self.dim)
+        else:
+            X = X.reshape(X.shape[0], self.dim, self.dim, 1)
+        X = X.astype('float32')
+        Y = np_utils.to_categorical(Y, self.nb_classes)
+        return X,Y
+
     def zoom(self,z):
         data_image_zoom = np.ndarray((self.data_image.shape[0],
                                       self.data_image.shape[1]/z**2))
@@ -82,21 +94,10 @@ class Data:
     def Normalize(self):
         self.data_image =self.data_image/255.
 
-    def CreateUsageSet(self,usage):
-        X = self.data_image[self.data_usage==usage, :]
-        Y = self.data_emotion[self.data_usage==usage]
-
-        if K.image_dim_ordering() == 'th':
-            X = X.reshape(X.shape[0], 1,self.dim, self.dim)
-        else:
-            X = X.reshape(X.shape[0], self.dim, self.dim, 1)
-        X = X.astype('float32')
-        Y = np_utils.to_categorical(Y, self.nb_classes)
-        return X,Y
-
     def ViewEmotion(self):
         fig = plt.figure()
         i = 1
+       
         nrow = int(np.sqrt(self.nb_example+.25)-0.5)+1
         for emotion,image in zip(self.data_emotion,self.data_image):
             ax = fig.add_subplot(nrow,nrow+1,i)
@@ -105,6 +106,16 @@ class Data:
             ax.set_title(dico_emotion[emotion])
             plt.axis('off')
             i = i+1
+            
+    def ViewOneEmotion(self,example):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        image=self.data_image[example]
+        emotion = self.data_emotion[example]
+        pixels = image.reshape(self.input_shape[0:2])
+        ax.imshow(pixels, cmap='gray')
+        ax.set_title(dico_emotion[emotion])
+        plt.axis('off')
     
     # Substract the mean value of each image
     def SubstractMean(self):
@@ -119,6 +130,8 @@ class Data:
         # standardized each pixels accross the image
         scaler = preprocessing.StandardScaler().fit(self.data_image[self.data_usage=='Training'])
         self.data_image = scaler.transform(self.data_image)
+
+ 
         
 # test on the whole dataset  
 data= Data(df)
@@ -147,22 +160,22 @@ one_image.ViewEmotion()
 
 several_images = Data(df.sample(20))
 several_images.data_image
-several_images.ViewEmotion()
+several_images.ViewOneEmotion(1)
 several_images.SubstractMean()
 several_images.EnhanceContrast()
 several_images.ViewEmotion()
 several_images.TangPreprocess()
 
+several_images.CreateUsageSet('Training')
 #==============================================================================
 # CNN
 #==============================================================================
-data = Data(df)
+data = Data(df[df.emotion!=1])
 data.SubstractMean()
 data.TangPreprocess()
-data.EnhanceContrast()
 data.zoom(2)
-data.input_shape
-data.Normalize()
+np.unique(data.data_emotion)
+data.nb_example
 # set inputs and outputs
 Xtrain, YtrainBin = data.CreateUsageSet('Training')
 Xcv, YcvBin = data.CreateUsageSet('PrivateTest')
@@ -182,7 +195,6 @@ kernel_size = (3, 3)
 
 # CNN model
 model = Sequential()
-
 model.add(Convolution2D(nb_filters, kernel_size[0], kernel_size[1],
                         border_mode='valid',
                         input_shape=data.input_shape))
@@ -190,8 +202,8 @@ model.add(Activation('relu'))
 model.add(Convolution2D(nb_filters, kernel_size[0], kernel_size[1]))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=pool_size))
-model.add(Dropout(0.25))
 
+model.add(Dropout(0.25))
 model.add(Flatten())
 model.add(Dense(128))
 model.add(Activation('relu'))
@@ -216,13 +228,39 @@ scoreTest = model.evaluate(Xtest, YtestBin, verbose=0)
 print('Test score:', scoreTest[0])
 print('Test accuracy:', scoreTest[1])
 
+# save the model
 
-predictCV = model.predict(Xcv, verbose=0)
-np.sum((predictCV.argmax(axis=1)-YcvBin.argmax(axis=1))==0)/float(YcvBin.shape[0])
-predictCV[0]
+model.save(os.path.join(GIT_PATH,'model_tang'))
+model_loaded = load_model(os.path.join(GIT_PATH,'model1'))
+model_loaded.summary()
+#==============================================================================
+#  Results
+#==============================================================================
 
+# see intermediate layer response
+import theano
+def plot_interlayer_outputs(input_img, layer_num1, layer_num2):
+    output_fn = theano.function([model.layers[layer_num1].input], # import theano
+                                 model.layers[layer_num2].output, allow_input_downcast=True)
+    im = output_fn(input_img).squeeze() #filtered image
+    print( im.shape)
+    n_filters = im.shape[-1]
+    fig = plt.figure(figsize=(12,6))
+    for i in range(n_filters):
+        ax = fig.add_subplot(n_filters/16,16,i+1)
+        ax.imshow(im[:,:,i], cmap='gray') 
+        plt.xticks(np.array([]))
+        plt.yticks(np.array([]))
+        plt.tight_layout()
+    plt.show()
+
+example = 1
+data.ViewOneEmotion(example)
+img = Xtrain[example:example+1]
+plot_interlayer_outputs(img, 0, 5)
 fig = plt.figure()
 ax = fig.add_subplot(111)
+ 
 j=0
 for clas in range(7):
     j=j+0.1
@@ -233,14 +271,6 @@ for clas in range(7):
 propCla  = YcvBin.mean(axis=0)
 ax.set_xticks(np.arange(7)+0.5)
 ax.set_xticklabels(tuple(dico_emotion.values()))
-
-# save the model
-
-model.save(os.path.join(GIT_PATH,'model_eq'))
-
-model_loaded = load_model(os.path.join(GIT_PATH,'model1'))
-
-model_loaded.summary()
 
 # see an example and its prediction
 exemple = 28716
