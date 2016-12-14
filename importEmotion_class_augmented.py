@@ -9,9 +9,6 @@ Created on Wed Nov 23 11:16:40 2016
 import pandas
 import numpy as np
 import matplotlib.pyplot as plt
-
-np.random.seed(1337)  # for reproducibility
-
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
@@ -25,6 +22,9 @@ from sklearn import preprocessing
 #import getpass
 #getpass.getuser()
 # Importation des donnees
+
+np.random.seed(1337)  # for reproducibility
+
 DATA_PATH = os.environ['EMOTION_PROJECT']
 #DATA_PATH = "/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013"
 #DATA_PATH = "mypath"
@@ -74,7 +74,7 @@ class Data:
         else:
             X = X.reshape(X.shape[0], self.dim, self.dim, 1)
         X = X.astype('float32')
-        Y = np_utils.to_categorical(Y, self.nb_classes)
+        Y = np_utils.to_categorical(Y, 7)
         return X,Y
 
     def zoom(self,z):
@@ -124,7 +124,7 @@ class Data:
         self.data_image = self.data_image - mean[:, np.newaxis]
 
     # set the image norm to 100 and standardized each pixels accross the image    
-    def TangPreprocess(self):
+    def Normalization(self):
         # set the image norm to 100 
         min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
         self.data_image = min_max_scaler.fit_transform(self.data_image)
@@ -152,7 +152,7 @@ class Data:
 
         
  
-        
+       
 # test on the whole dataset  
 data= Data(df)
 data.data_image[1,:]
@@ -191,20 +191,20 @@ several_images.CreateUsageSet('Training')
 #==============================================================================
 # CNN
 #==============================================================================
-data = Data(df)
+data = Data(df[df['emotion']!=1])
+#data.FlipTrain('Training') # create 'Training flip'
 data.SubstractMean()
-data.TangPreprocess()
+data.Normalization()
 data.zoom(2)
-data.FlipTrain('Training') # create 'Training flip'
 data.nb_example
 # set inputs and outputs
 Xtrain, YtrainBin = data.CreateUsageSet(['Training','Training flip']) # add 'Training flip'
-Xcv, YcvBin = data.CreateUsageSet('PrivateTest')
-Xtest, YtestBin = data.CreateUsageSet('PublicTest')
+Xcv, YcvBin = data.CreateUsageSet('PublicTest')
+Xtest, YtestBin = data.CreateUsageSet('PrivateTest')
 
 ### parameters CNN ###
-batch_size = 128*2
-nb_epoch = 12
+batch_size = 128
+nb_epoch = 30
 # input image dimensions
 img_rows, img_cols = data.dim,data.dim
 # number of convolutional filters to use
@@ -237,8 +237,11 @@ model.compile(loss='categorical_crossentropy',
               metrics=['accuracy'])
 
 # Model fitting
-model.fit(Xtrain, YtrainBin, batch_size=batch_size, nb_epoch=nb_epoch,
+history24 = model.fit(Xtrain, YtrainBin, batch_size=batch_size, nb_epoch=nb_epoch,
           verbose=1, validation_data=(Xcv, YcvBin))
+model.save(os.path.join(GIT_PATH,'model24'))
+history24.save(os.path.join(GIT_PATH,'history24'))
+
 # Model evaluation
 # Cross validation score
 scoreCV = model.evaluate(Xcv, YcvBin,verbose=0)
