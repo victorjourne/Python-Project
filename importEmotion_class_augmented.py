@@ -41,6 +41,8 @@ df = pd.merge(df0,df1,left_index=True,right_index=True)
 # dico emotion
 dico_emotion = {0:'Angry',1:'Disgust', 2:'Fear',
                 3:'Happy', 4:'Sad', 5:'Surprise', 6:'Neutral'}
+                
+colors = ['b', 'r', 'c', 'm', 'y', 'maroon']
 
 class Data:
     def __init__(self,df):
@@ -95,29 +97,45 @@ class Data:
     def Normalize(self):
         self.data_image =self.data_image/255.
 
-    def ViewEmotion(self):
-        fig = plt.figure()
-        i = 1
-       
-        nrow = int(np.sqrt(self.nb_example+.25)-0.5)+1
-        for emotion,image in zip(self.data_emotion,self.data_image):
-            ax = fig.add_subplot(nrow,nrow+1,i)
-            pixels = image.reshape(self.input_shape[0:2])
-            ax.imshow(pixels, cmap='gray')
-            ax.set_title(dico_emotion[emotion])
-            plt.axis('off')
-            i = i+1
             
-    def ViewOneEmotion(self,example):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+    def ViewOneEmotion(self,example,ax):
+#        fig = plt.figure()
+#        ax = fig.add_subplot(111)
         image=self.data_image[example]
         emotion = self.data_emotion[example]
         pixels = image.reshape(self.input_shape[0:2])
         ax.imshow(pixels, cmap='gray')
         ax.set_title(dico_emotion[emotion])
         plt.axis('off')
+        return ax
+
+    def ViewSomeEmotions(self,example_list):
+        fig = plt.figure()
+        i = 1
+        nrow = int(np.sqrt(len(example_list)+.25)-0.5)+1
+        for example in example_list:
+            ax = fig.add_subplot(nrow,nrow+1,i)
+            ax = self.ViewOneEmotion(example,ax)
+            i = i+1 
     
+    def ViewEmotionPredictions(self,example_list,prediction_matrix):
+        nrow = 2*(int(np.sqrt(len(example_list)+.25)-0.5)+1)
+        ncol = (2*len(example_list))/nrow+1
+        fig = plt.figure(figsize=(12,12))
+        i = 1
+        for example in example_list:
+            ax = fig.add_subplot(nrow,ncol,i)
+            ax = self.ViewOneEmotion(example,ax)
+            ax1 = fig.add_subplot(nrow,ncol,i+ncol)
+            ax1.bar(range(0,self.nb_classes), prediction_matrix[example],color =colors)
+            ax1.set_xticks(np.arange(0.5,6.5,1))
+            ax1.set_xticklabels(dico_emotion.values(), rotation=45, fontsize=7)
+            ax1.set_yticks(np.arange(0.0,1.1,0.5))
+#            if i%ncol==0:
+#                i = i+ncol
+            i = i+1+ncol*(i%ncol==0)
+        plt.tight_layout()
+
     # Substract the mean value of each image
     def SubstractMean(self):
         mean = self.data_image.mean(axis=1)
@@ -178,7 +196,9 @@ image = one_image.data_image
 np.fliplr(image)
 
 one_image.input_shape
-several_images = Data(df.sample(20))
+several_images = Data(df[df['emotion']!=1].sample(20))
+several_images.ViewSomeEmotions([1,2,3])
+
 several_images.FlipTrain()
 several = several_images.data_image
 several_images.ViewOneEmotion(1)
@@ -191,7 +211,15 @@ several_images.CreateUsageSet('Training')
 #==============================================================================
 # CNN
 #==============================================================================
-data = Data(df[df['emotion']!=1])
+#new dico without the under represented class digust
+
+dico_emotion = {0:'Angry', 1:'Fear',
+                2:'Happy', 3:'Sad', 4:'Surprise', 5:'Neutral'}
+
+data = Data(df[df['emotion']!=1].sample(1000))
+f = lambda x: x-1 if x>1 else x
+fv = np.vectorize(f)
+data.data_emotion = fv(data.data_emotion)
 #data.FlipTrain('Training') # create 'Training flip'
 data.SubstractMean()
 data.Normalization()
@@ -204,7 +232,7 @@ Xtest, YtestBin = data.CreateUsageSet('PrivateTest')
 
 ### parameters CNN ###
 batch_size = 128
-nb_epoch = 30
+nb_epoch = 6
 # input image dimensions
 img_rows, img_cols = data.dim,data.dim
 # number of convolutional filters to use
@@ -271,13 +299,17 @@ print('Test score:', scoreTest[0])
 print('Test accuracy:', scoreTest[1])
 
 # save the model
-
-model.save(os.path.join(GIT_PATH,'model_tang_flip'))
-model = load_model(os.path.join(GIT_PATH,'model_tang'))
-model_loaded.summary()
+#
+#model.save(os.path.join(GIT_PATH,'model_tang_flip'))
+#model = load_model(os.path.join(GIT_PATH,'model_tang'))
+#model_loaded.summary()
 #==============================================================================
 #  Results
 #==============================================================================
+# see some misclassed image
+PredTest = model.predict(Xcv, verbose=0)
+
+data.ViewEmotionPredictions(range(1,20),PredTest[range(1,20)])
 
 # see intermediate layer response
 import theano
