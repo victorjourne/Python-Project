@@ -19,6 +19,10 @@ import os
 from skimage import exposure,transform
 import pandas as pd
 from sklearn import preprocessing
+import pickle
+# import Class Data
+from EmotionClass import Data
+
 #import getpass
 #getpass.getuser()
 # Importation des donnees
@@ -30,7 +34,6 @@ DATA_PATH = os.environ['EMOTION_PROJECT']
 #DATA_PATH = "mypath"
 GIT_PATH = "C:\Users\KD5299\Python-Project"
 #GIT_PATH = "/Users/ludoviclelievre/Documents/Python-Project"
-
 df0 = pandas.read_csv(os.path.join(DATA_PATH,'fer2013.csv'), 
                      sep=",")
 df0.drop('pixels',axis = 1,inplace=True)
@@ -44,133 +47,6 @@ dico_emotion = {0:'Angry',1:'Disgust', 2:'Fear',
                 
 colors = ['b', 'r', 'c', 'm', 'y', 'maroon']
 
-class Data:
-    def __init__(self,df):
-        self.data_emotion = df['emotion'].as_matrix(columns=None)
-        self.data_usage = df['Usage'].as_matrix(columns=None)
-        self.data_image = df[list(filter(lambda pxl: type(pxl)!=str ,df.columns.tolist()))].as_matrix(columns=None)
-   
-    @property
-    def nb_example(self):
-        return int(self.data_emotion.shape[0])
-    @property
-    def dim(self):
-        return int(np.sqrt(self.data_image[0].shape[0]))     
-    @property
-    def nb_classes(self):
-        return int(np.unique(self.data_emotion).shape[0])
-    @property
-    def input_shape(self):
-        if K.image_dim_ordering() == 'th':
-            return (1, self.dim, self.dim)
-        else:
-            return (self.dim, self.dim,1)
-    
-    def CreateUsageSet(self,usage):
-        mask = np.in1d(self.data_usage, usage)
-        X = self.data_image[mask, :]
-        Y = self.data_emotion[mask]
-    
-        if K.image_dim_ordering() == 'th':
-            X = X.reshape(X.shape[0], 1,self.dim, self.dim)
-        else:
-            X = X.reshape(X.shape[0], self.dim, self.dim, 1)
-        X = X.astype('float32')
-        Y = np_utils.to_categorical(Y, 7)
-        return X,Y
-
-    def zoom(self,z):
-        data_image_zoom = np.ndarray((self.data_image.shape[0],
-                                      self.data_image.shape[1]/z**2))
-        i = 0
-        for image in self.data_image:
-            data_image_zoom[i] = transform.downscale_local_mean(
-                            image.reshape((self.dim, self.dim)),(z,z)).ravel()
-            i=1+i
-        self.data_image = data_image_zoom    
-#        self.dim = int(self.dim / z)
-        
-    def EnhanceContrast(self):
-        self.data_image = np.apply_along_axis(
-                                exposure.equalize_hist,1,self.data_image)
-        
-    def Normalize(self):
-        self.data_image =self.data_image/255.
-
-            
-    def ViewOneEmotion(self,example,ax):
-#        fig = plt.figure()
-#        ax = fig.add_subplot(111)
-        image=self.data_image[example]
-        emotion = self.data_emotion[example]
-        pixels = image.reshape(self.input_shape[0:2])
-        ax.imshow(pixels, cmap='gray')
-        ax.set_title(dico_emotion[emotion])
-        plt.axis('off')
-        return ax
-
-    def ViewSomeEmotions(self,example_list):
-        fig = plt.figure()
-        i = 1
-        nrow = int(np.sqrt(len(example_list)+.25)-0.5)+1
-        for example in example_list:
-            ax = fig.add_subplot(nrow,nrow+1,i)
-            ax = self.ViewOneEmotion(example,ax)
-            i = i+1 
-    
-    def ViewEmotionPredictions(self,example_list,prediction_matrix):
-        nrow = 2*(int(np.sqrt(len(example_list)+.25)-0.5)+1)
-        ncol = (2*len(example_list))/nrow+1
-        fig = plt.figure(figsize=(12,12))
-        i = 1
-        for example in example_list:
-            ax = fig.add_subplot(nrow,ncol,i)
-            ax = self.ViewOneEmotion(example,ax)
-            ax1 = fig.add_subplot(nrow,ncol,i+ncol)
-            ax1.bar(range(0,self.nb_classes), prediction_matrix[example],color =colors)
-            ax1.set_xticks(np.arange(0.5,6.5,1))
-            ax1.set_xticklabels(dico_emotion.values(), rotation=45, fontsize=7)
-            ax1.set_yticks(np.arange(0.0,1.1,0.5))
-#            if i%ncol==0:
-#                i = i+ncol
-            i = i+1+ncol*(i%ncol==0)
-        plt.tight_layout()
-
-    # Substract the mean value of each image
-    def SubstractMean(self):
-        mean = self.data_image.mean(axis=1)
-        self.data_image = self.data_image - mean[:, np.newaxis]
-
-    # set the image norm to 100 and standardized each pixels accross the image    
-    def Normalization(self):
-        # set the image norm to 100 
-        min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
-        self.data_image = min_max_scaler.fit_transform(self.data_image)
-        # standardized each pixels accross the image
-        scaler = preprocessing.StandardScaler().fit(self.data_image[self.data_usage=='Training'])
-        self.data_image = scaler.transform(self.data_image)
-
-    def FlipTrain(self,usage):
-        flip_image = self.data_image[self.data_usage==usage]*0
-        i = 0
-        for image in self.data_image[self.data_usage==usage]:
-            flip_image[i] = np.fliplr(
-                    image.reshape(self.input_shape[0:2])).ravel()
-            i=1+i
-        flip_emotion = self.data_emotion[self.data_usage==usage]
-        flip_usage = self.data_usage[self.data_usage==usage]+" flip"
-
-        self.data_image = np.concatenate(
-                    (self.data_image,flip_image),axis=0)
-        self.data_emotion = np.concatenate(
-                    (self.data_emotion,flip_emotion),axis=0)     
-        self.data_usage = np.concatenate(
-                    (self.data_usage,flip_usage),axis=0)
-      
-
-        
- 
-       
 # test on the whole dataset  
 data= Data(df)
 data.data_image[1,:]
@@ -196,8 +72,8 @@ image = one_image.data_image
 np.fliplr(image)
 
 one_image.input_shape
-several_images = Data(df[df['emotion']!=1].sample(20))
-several_images.ViewSomeEmotions([1,2,3])
+several_images = Data(df.sample(20))
+several_images.ViewSomeEmotions('Training',range(0,13))
 
 several_images.FlipTrain()
 several = several_images.data_image
@@ -216,11 +92,11 @@ several_images.CreateUsageSet('Training')
 dico_emotion = {0:'Angry', 1:'Fear',
                 2:'Happy', 3:'Sad', 4:'Surprise', 5:'Neutral'}
 
-data = Data(df[df['emotion']!=1].sample(1000))
+data = Data(df[df['emotion']!=1])
 f = lambda x: x-1 if x>1 else x
 fv = np.vectorize(f)
 data.data_emotion = fv(data.data_emotion)
-#data.FlipTrain('Training') # create 'Training flip'
+data.FlipTrain('Training') # create 'Training flip'
 data.SubstractMean()
 data.Normalization()
 data.zoom(2)
@@ -269,6 +145,8 @@ history24 = model.fit(Xtrain, YtrainBin, batch_size=batch_size, nb_epoch=nb_epoc
           verbose=1, validation_data=(Xcv, YcvBin))
 model.save(os.path.join(GIT_PATH,'model24'))
 history24.save(os.path.join(GIT_PATH,'history24'))
+model = load_model(os.path.join(GIT_PATH,'modelflip24'))
+history = pickle.load(open( os.path.join(GIT_PATH,'historyflip24'), "rb" ))
 
 # Model evaluation
 # Cross validation score
@@ -282,7 +160,6 @@ print('Test accuracy:', scoreTest[1])
 
 # is it relevent to flip the train set? Test of accuracy with tang model
 # to compare with the model_tang_flip
-model = load_model(os.path.join(GIT_PATH,'model_tang'))
 data = Data(df)
 data.SubstractMean()
 data.TangPreprocess()
@@ -306,18 +183,31 @@ print('Test accuracy:', scoreTest[1])
 #==============================================================================
 #  Results
 #==============================================================================
-# see some misclassed image
-PredTest = model.predict(Xcv, verbose=0)
+# see some  images
+PredTest = model.predict(Xtest)
+data = Data(df[(df['emotion']!=1)&(df['Usage']=='PrivateTest')])
+f = lambda x: x-1 if x>1 else x
+fv = np.vectorize(f)
+data.data_emotion = fv(data.data_emotion)
 
-data.ViewEmotionPredictions(range(1,20),PredTest[range(1,20)])
+data.ViewEmotionPredictions(range(0,10),PredTest[range(0,10)])
+
+# see some misclassed images
+misclass = PredTest.argmax(axis=1)!=data.data_emotion
+np.sum(misclass)
+misclass_array, = np.where(misclass==True)
+misclass_list = list(np.random.choice(misclass_array,20))
+data.ViewEmotionPredictions(misclass_list,PredTest)
 
 # see intermediate layer response
+
 import theano
 def plot_interlayer_outputs(input_img, layer_num1, layer_num2):
     output_fn = theano.function([model.layers[layer_num1].input], # import theano
-                                 model.layers[layer_num2].output, allow_input_downcast=True)
+                                 model.layers[layer_num2].output,
+                                 allow_input_downcast=True)
     im = output_fn(input_img).squeeze() #filtered image
-    print( im.shape)
+    print("shape of this layer: {}".format(im.shape))
     n_filters = im.shape[-1]
     fig = plt.figure(figsize=(12,6))
     for i in range(n_filters):
@@ -328,61 +218,16 @@ def plot_interlayer_outputs(input_img, layer_num1, layer_num2):
         plt.tight_layout()
     plt.show()
 
-example = 1
-data.ViewOneEmotion(example)
-img = Xtrain[example:example+1]
-plot_interlayer_outputs(img, 0, 5)
+example = 4
 fig = plt.figure()
 ax = fig.add_subplot(111)
- 
-j=0
-for clas in range(7):
-    j=j+0.1
-    predClas = predictCV[YcvBin.argmax(axis=1)==clas].mean(axis=0)
-    print(predClas)   
-    rects = ax.bar(np.arange(7)+j, predClas.T, 0.1,
-                 label='Men')
-propCla  = YcvBin.mean(axis=0)
-ax.set_xticks(np.arange(7)+0.5)
-ax.set_xticklabels(tuple(dico_emotion.values()))
+data.ViewOneEmotion("PrivateTest",example,ax)
+img = Xtest[example:example+1]
+plot_interlayer_outputs(img, 0, 0)
+plot_interlayer_outputs(img, 0, 1)
+plot_interlayer_outputs(img, 0, 2)
+plot_interlayer_outputs(img, 0, 3)
+plot_interlayer_outputs(img, 0, 4)
 
-# see an example and its prediction
-exemple = 28716
-input_image = data_image.reshape((data_image.shape[0],48,48))[exemple]
-input_image = input_image.astype('float32')/255
-input_image = Xtrain[1:2,:]
-if K.image_dim_ordering() == 'th':
-    input_image = input_image.reshape(1, 1, img_rows, img_cols)
-else:
-    input_image = input_image.reshape(1, img_rows, img_cols, 1)
+ax = fig.add_subplot(n_filters/16,16,i+1)
 
-pred = model_loaded.predict(input_image)
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-rects = ax.bar(np.arange(7), pred.T, 0.35,
-                 color='b',
-                 label='Men')
-ax.set_xticks(np.arange(7))
-ax.set_xticklabels(tuple(dico_emotion.values()))
-
-view_emotion(exemple)
-
-# normalised histogram
-
-img_eq = exposure.equalize_hist(Xtrain[2:3,:])
-
-def view_emotion(exemple):
-    fig = plt.figure(str(exemple))
-    ax= fig.add_subplot(211)
-    ax1= fig.add_subplot(221)
-    pixels = data_image[exemple,:]
-    pixels = pixels.reshape((48, 48))
-    ax1.imshow(pixels, cmap='gray')
-    ax.imshow(exposure.equalize_hist(pixels), cmap='gray')
-    ax.set_title(dico_emotion[data_emotion[exemple]])
-
-view_emotion(20)
-
-plt.hist(img_eq.ravel(),256)
-plt.hist(Xtrain[1:2,:].ravel(),256)
