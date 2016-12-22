@@ -15,8 +15,10 @@ from keras.regularizers import l2
 from skimage import exposure,transform
 import pandas as pd
 from sklearn import preprocessing
-from EmotionClass import Data
 import cv2
+from sklearn.externals import joblib
+from EmotionClass import Data
+
 
 DATA_PATH = os.environ['EMOTION_PROJECT']
 #DATA_PATH = "/Users/ludoviclelievre/Documents/cours_ensae_ms/python_pour_le_dataScientist/projet_python/donnees/fer2013"
@@ -24,23 +26,6 @@ DATA_PATH = os.environ['EMOTION_PROJECT']
 GIT_PATH = "C:\Users\KD5299\Python-Project"
 cascPath = "C:\Users\KD5299\AppData\Local\Continuum\Anaconda2\pkgs\opencv3-3.1.0-py27_0\Library\etc\haarcascades\haarcascade_frontalface_default.xml"
 faceCascade = cv2.CascadeClassifier(cascPath)
-
-## load data to build the scaler
-#df0 = pd.read_csv(os.path.join(DATA_PATH,'fer2013.csv'), 
-#                     sep=",")
-#df0.drop('pixels',axis = 1,inplace=True)
-#df1 = pd.read_csv(os.path.join(DATA_PATH,'pixels.csv'), 
-#                             sep=" ", header=None)
-#df = pd.merge(df0,df1,left_index=True,right_index=True)
-#data= Data(df)
-#data.SubstractMean()
-#min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
-#data.zoom(2)
-#data.data_image = min_max_scaler.fit_transform(data.data_image)
-## standardized each pixels accross the image
-#scaler = preprocessing.StandardScaler().fit(data.data_image)
-## standardized each pixels accross the image
-
 
 # load model
 model = load_model(os.path.join(GIT_PATH,'modelflip48'))
@@ -94,10 +79,11 @@ while True:
 #        image.ViewOneEmotion('RealTime',0,ax)
         X, _ = image.CreateUsageSet('RealTime') 
         Y = model.predict(X)
-        text =  str([dico_emotion[emo]+'  :'+'%.2f' %Y[0][emo] for emo in range(0,6) ])
+        text= [dico_emotion[emo]+': '+'%.2f' %Y[0][emo] for emo in range(0,6) ]
+        text =  reduce(lambda x,y:x+' '+y,text)
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        cv2.putText(frame,text, (20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 250)
-        cv2.putText(frame,dico_emotion[Y.argmax()], (x,y), cv2.FONT_HERSHEY_SIMPLEX, 1, 255)
+        cv2.putText(frame,text, (20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 0, 0))
+        cv2.putText(frame,dico_emotion[Y.argmax()], (x,y), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0))
 
     # Display the resulting frame
     cv2.imshow('Video', frame)
