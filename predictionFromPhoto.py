@@ -28,8 +28,7 @@ class ImgFromPhoto(Data):
     
     def NormalizationExternalData(self):
         # set the image norm to 100 
-        min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
-        self.data_image = min_max_scaler.fit_transform(self.data_image)
+        self.data_image = min_max_scaler.transform(self.data_image)
         # use the scaler from the training set to standardize each pixel of the image
         self.data_image = normalization_scaler.transform(self.data_image)
 
@@ -41,6 +40,7 @@ faceCascade = cv2.CascadeClassifier(cascPath)
 # load model
 model = load_model(os.path.join(GIT_PATH,'modelflip48'))
 normalization_scaler = joblib.load(os.path.join(GIT_PATH,'normalization_scaler'))
+min_max_scaler = joblib.load(os.path.join(GIT_PATH,'min_max_scaler'))
 
 # new dictionnary
 dico_emotion = {0:'Angry', 1:'Fear',
