@@ -1,4 +1,0 @@
-check article t-SNE
-check article cnn sur le site de xd
-faire un random forest
-faire un zoom
