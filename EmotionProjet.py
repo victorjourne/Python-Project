@@ -16,12 +16,13 @@ from keras.utils import np_utils
 from keras import backend as K
 from keras.regularizers import l2
 import os
-from skimage import exposure,transform
+from skimage import exposure,transform,feature
 import pandas as pd
 from sklearn import preprocessing
 import pickle
 # import Class Data
 from EmotionClass import Data
+
 
 #import getpass
 #getpass.getuser()
@@ -41,8 +42,11 @@ df1 = pandas.read_csv(os.path.join(DATA_PATH,'pixels.csv'),
                              sep=" ", header=None)
 
 df = pd.merge(df0,df1,left_index=True,right_index=True)
+# drop disgut 
+df = df[df['emotion']!=1]
+df['emotion'] = (df['emotion']-1).where(df['emotion']>1,other = df['emotion'])
 # dico emotion
-dico_emotion = {0:'Angry',1:'Disgust', 2:'Fear',
+dico_emotion = {0:'Angry', 2:'Fear',
                 3:'Happy', 4:'Sad', 5:'Surprise', 6:'Neutral'}
                 
 colors = ['b', 'r', 'c', 'm', 'y', 'maroon']
@@ -50,6 +54,11 @@ colors = ['b', 'r', 'c', 'm', 'y', 'maroon']
 # test on the whole dataset  
 data= Data(df)
 data.data_image[1,:]
+# see one image
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax = data.ViewOneEmotion(10,ax)
+
 X,Y = data.CreateUsageSet('Training')
 data.EnhanceContrast()
 data.dim
@@ -59,11 +68,9 @@ data.zoom(2)
 Xez,Yze = data.CreateUsageSet('Training')
 data.data_image
 Xez.shape
-
 # test with one image
 one_image = Data(df.iloc[3:4])
 one_image.zoom(2)
-one_image.ViewEmotion()
 one_image.EnhanceContrast()
 one_image.ViewEmotion()
 
@@ -71,19 +78,15 @@ one_image = Data(df.iloc[3:4])
 image = one_image.data_image
 np.fliplr(image)
 
-one_image.input_shape
-several_images = Data(df.sample(20))
-several_images.ViewSomeEmotions('Training',range(0,13))
+some_images = Data(df[df['Usage']=='Training'].sample(8))
+print('The subset is shaped as {}'.format(some_images.input_shape))
+print('The subset has {} examples'.format(some_images.nb_example))
+print('The subset has {} different classes'.format(some_images.nb_classes))
+# see the 8th first images of the training set
+some_images.ViewSomeEmotions(range(8))
 
-several_images.FlipTrain()
-several = several_images.data_image
-several_images.ViewOneEmotion(1)
-several_images.SubstractMean()
-several_images.EnhanceContrast()
-several_images.ViewEmotion()
-several_images.TangPreprocess()
+some_images.FlipTrain()
 
-several_images.CreateUsageSet('Training')
 #==============================================================================
 # CNN
 #==============================================================================
@@ -178,8 +181,14 @@ print('Test accuracy:', scoreTest[1])
 # save the model
 
 model.save(os.path.join(GIT_PATH,'model_tang_flip'))
-model_loaded = load_model(os.path.join(GIT_PATH,'model_tang'))
+model_loaded = load_model(os.path.join(GIT_PATH,'modelflip48'))
 model_loaded.summary()
+model_loaded.save_weights(os.path.join(GIT_PATH,'modelflip48.hdf5'))
+with open(os.path.join(GIT_PATH,'modelflip48.json'), 'w') as f:
+    f.write(model_loaded.to_json())
+
+
+
 #==============================================================================
 #  Results
 #==============================================================================
@@ -230,4 +239,6 @@ plot_interlayer_outputs(img, 0, 3)
 plot_interlayer_outputs(img, 0, 4)
 
 ax = fig.add_subplot(n_filters/16,16,i+1)
+
+
 
