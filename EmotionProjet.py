@@ -52,8 +52,9 @@ dico_emotion = {0:'Angry', 2:'Fear',
 colors = ['b', 'r', 'c', 'm', 'y', 'maroon']
 
 # test on the whole dataset  
-data= Data(df)
-data.data_image[1,:]
+data= Data(df.ix[0:20])
+data.lbp(P=16,R=8)
+data.ViewSomeEmotions(range(20))
 # see one image
 fig = plt.figure()
 ax = fig.add_subplot(111)

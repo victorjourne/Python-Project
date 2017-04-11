@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from keras.utils import np_utils
 from keras import backend as K
-from skimage import exposure,transform
+from skimage import exposure,transform,feature
 import pandas as pd
 from sklearn import preprocessing
 
@@ -54,9 +54,31 @@ class Data:
         else:
             X = X.reshape(X.shape[0], self.dim, self.dim, 1)
         X = X.astype('float32')
-        Y = np_utils.to_categorical(Y, 7)
+        Y = np_utils.to_categorical(Y, self.nb_classes)
         return X,Y
+    # for second method
+    def lbp(self,P=24,R=8):
+        data_image_lbp = self.data_image*0
+        i = 0
+        for image in self.data_image:
+            data_image_lbp[i]  = feature.local_binary_pattern(
+            image.reshape((self.dim, self.dim)),P,R,method = 'uniform').ravel()
+            i+=1
+        self.data_image = data_image_lbp  
+        
+    def HistoBlocks(self,nbBlock = 36,FeatDim = 20):
+        ImgDim = self.dim
+        SpatialDim= int(np.sqrt(nbBlock))
+        SpatialRatio = int(ImgDim/SpatialDim)
 
+        A= np.ones((SpatialRatio,SpatialRatio))
+        block = np.bmat([[a*A+b for a in range(SpatialDim)] for b in range(0,SpatialDim**2,SpatialDim)])
+        def comput_histo(image):
+            H,_,_ = np.histogram2d(np.asarray(block).ravel(),image,bins=(SpatialDim**2,FeatDim))
+            return H.ravel()
+        return np.apply_along_axis(
+                                   comput_histo,1,self.data_image)
+        
     def zoom(self,z):
         data_image_zoom = np.ndarray((self.data_image.shape[0],
                                       self.data_image.shape[1]/z**2))
@@ -76,25 +98,29 @@ class Data:
         self.data_image =self.data_image/255.
 
             
-    def ViewOneEmotion(self,usage,example,ax):
+    def ViewOneEmotion(self,example,ax,usage=False):
 #        fig = plt.figure()
 #        ax = fig.add_subplot(111)
-        image = self.data_image[self.data_usage==usage][example]
-        emotion = self.data_emotion[example]
+        if usage:
+            image = self.data_image[self.data_usage==usage][example]
+            emotion = self.data_emotion[self.data_usage==usage][example]
+
+        else:
+            image = self.data_image[example]
+            emotion = self.data_emotion[example]
         pixels = image.reshape(self.input_shape[0:2])
         ax.imshow(pixels, cmap='gray')
         ax.set_title(dico_emotion[emotion])
         plt.axis('off')
         return ax
 
-    def ViewSomeEmotions(self,usage,example_list):
-    
-        fig = plt.figure()
+    def ViewSomeEmotions(self,example_list,usage=False):
+        fig = plt.figure(figsize=(16,8))
         i = 1
         nrow = int(np.sqrt(len(example_list)+.25)-0.5)+1
         for example in example_list:
             ax = fig.add_subplot(nrow,nrow+1,i)
-            ax = self.ViewOneEmotion(usage,example,ax)
+            ax = self.ViewOneEmotion(example,ax,usage)
             i = i+1 
     
     def ViewEmotionPredictions(self,usage,example_list,prediction_matrix):
@@ -104,7 +130,7 @@ class Data:
         i = 1
         for example in example_list:
             ax = fig.add_subplot(nrow,ncol,i)
-            ax = self.ViewOneEmotion(example,ax)
+            ax = self.ViewOneEmotion(usage,example,ax)
             ax1 = fig.add_subplot(nrow,ncol,i+ncol)
             ax1.bar(range(0,self.nb_classes), prediction_matrix[example],color =colors)
             ax1.set_xticks(np.arange(0.5,6.5,1))
@@ -146,3 +172,4 @@ class Data:
         self.data_usage = np.concatenate(
                     (self.data_usage,flip_usage),axis=0)
         
+ 
