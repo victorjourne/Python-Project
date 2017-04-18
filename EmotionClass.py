@@ -6,6 +6,7 @@ Created on Mon Dec 19 23:53:25 2016
 """
 
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from keras.utils import np_utils
@@ -13,6 +14,13 @@ from keras import backend as K
 from skimage import exposure,transform,feature
 import pandas as pd
 from sklearn import preprocessing
+import cv2
+
+#GIT_PATH = "C:\Users\KD5299\Python-Project"
+GIT_PATH = "/Users/ludoviclelievre/Documents/Python-Project"
+# import haar cascade classifier
+cascPath = os.path.join(GIT_PATH,'haarcascade_frontalface_default.xml')
+faceCascade = cv2.CascadeClassifier(cascPath)
 
 
 dico_emotion = {0:'Angry', 1:'Fear',
@@ -171,5 +179,34 @@ class Data:
                     (self.data_emotion,flip_emotion),axis=0)     
         self.data_usage = np.concatenate(
                     (self.data_usage,flip_usage),axis=0)
+        
+    def Preprocess_opencv(self):
+        opencv_emotion = self.data_emotion
+        i=0
+        for image in self.data_image:
+            gray = image.reshape(48, 48)
+            faces = faceCascade.detectMultiScale(
+                gray.astype('uint8'),
+                scaleFactor=1.1,
+                minNeighbors=5,
+            )
+            if len(faces)==1:
+                for (x,y,w,h) in faces:
+                    gray = gray[y:y+h, x:x+w]
+                    gray = cv2.resize(gray.astype('uint8'), (48,48), interpolation = cv2.INTER_CUBIC)
+                    image = gray.astype('int64').ravel()
+
+            else:
+                opencv_emotion[i] = -2
+            
+            i+=1
+            
+        self.data_emotion = opencv_emotion
+        
+    def Supress_emotion(self, emotion):
+        for e in emotion:
+            self.data_usage = self.data_usage[self.data_emotion!=e]
+            self.data_image = self.data_image[self.data_emotion!=e]
+            self.data_emotion = self.data_emotion[self.data_emotion!=e]
         
  
