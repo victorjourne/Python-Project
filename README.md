@@ -1,6 +1,6 @@
 # Python-Project
 
-![](https://github.com/victorjourne/Python-Project/blob/master/emotion.gif)
+![](emotion.gif)
 
 
 [See our notebook](notebook_common.ipynb)
